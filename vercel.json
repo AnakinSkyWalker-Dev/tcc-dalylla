@@ -1,0 +1,9 @@
+{
+  "cleanUrls": false,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/Template_TCC_Biomedicina_2026_ComVideos.html"
+    }
+  ]
+}
