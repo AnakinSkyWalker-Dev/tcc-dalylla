@@ -157,10 +157,57 @@
     });
   }
 
+  /* ---- rolagem: nao perder a posicao ao entrar/sair do video ---- */
+  var scrollMemo = null;
+
+  function pageY() {
+    return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }
+
+  function memoScroll() {
+    scrollMemo = { y: pageY(), slide: current };
+  }
+
+  function restoreScroll() {
+    if (!scrollMemo) return;
+    var y = scrollMemo.y;
+    var target = slides[scrollMemo.slide] || slides[current];
+    var tries = 0;
+    (function pass() {
+      tries++;
+      window.scrollTo(0, y);
+      if (Math.abs(pageY() - y) > 4 && target && target.scrollIntoView) {
+        target.scrollIntoView({ block: "start" });
+      }
+      if (tries === 1) requestAnimationFrame(pass);
+      else if (tries === 2) setTimeout(pass, 60);
+      else if (tries === 3) setTimeout(pass, 200);
+      else if (tries === 4) setTimeout(pass, 450);
+    })();
+  }
+
+  function isFs() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
+  function onFsChange() {
+    if (isFs()) memoScroll();
+    else restoreScroll();
+  }
+
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
+
   deck.querySelectorAll(".vslot").forEach(function (slot) {
     var video = slot.querySelector("video");
     var cover = slot.querySelector(".cover");
+
+    /* evita o fullscreen automatico no celular (que resetava a rolagem) */
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+
     cover.addEventListener("click", function () {
+      memoScroll();
       load(video);
       video.controls = true;
       pauseOthers(video);
@@ -170,14 +217,23 @@
     });
     video.addEventListener("ended", function () {
       cover.classList.remove("hidden");
+      if (video.blur) video.blur();
+      restoreScroll();
     });
     video.addEventListener("play", function () { pauseOthers(video); });
+    video.addEventListener("webkitbeginfullscreen", memoScroll);
+    video.addEventListener("webkitendfullscreen", function () {
+      if (video.blur) video.blur();
+      restoreScroll();
+    });
   });
 
   function go(i) {
     current = Math.max(0, Math.min(total - 1, i));
     slides[current].scrollIntoView({ behavior: "smooth", block: "start" });
     count.textContent = (current + 1) + " / " + total;
+    scrollMemo = null;
+    setTimeout(function () { if (!isFs()) memoScroll(); }, 650);
   }
 
   document.getElementById("prev").addEventListener("click", function () { go(current - 1); });
